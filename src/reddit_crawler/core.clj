@@ -10,7 +10,29 @@
 ; Start ID marks the first post in our time range - I picked July 2012 01 as
 ; the start date because a discussion might go on for a month so we move the dial forward
 (def start-id "t3_vuetx")
+
 (def dec-31-2012-epoch 1325376000)
+
+(defn try-times*
+  "Executes thunk. If an exception is thrown, will retry. At most n retries
+  are done. If still some exception is thrown it is bubbled upwards in
+  the call chain."
+  [n thunk]
+  (loop [n n]
+    (if-let [result (try
+                      [(thunk)]
+                      (catch Exception e
+                        (when (zero? n)
+                          (throw e))))]
+      (result 0)
+      (recur (dec n)))))
+
+(defmacro try-times
+  "Executes body. If an exception is thrown, will retry. At most n retries
+  are done. If still some exception is thrown it is bubbled upwards in
+  the call chain."
+  [n & body]
+  `(try-times* ~n (fn [] ~@body)))
 
 (defn build-reddit-uri-next-100-posts
   ([init-id] (build-reddit-uri-next-100-posts init-id 100))
@@ -26,15 +48,15 @@
   ([init-id limit] 
    (let [posts (map walk/keywordize-keys 
                     (-> 
-    				 (client/get 
-                		(build-reddit-uri-next-100-posts 
-                    		init-id 
-                    		limit))
-    				 :body
-					 json/read-str 
-			 		 walk/keywordize-keys 
-			 		 :data
-			 		 :children))
+    				         (try-times 20 (client/get 
+                		                (build-reddit-uri-next-100-posts 
+                    		              init-id 
+                    		              limit)))
+    				        :body
+					          json/read-str 
+			 		          walk/keywordize-keys 
+			 		          :data
+			 		          :children))
 				
          last-post-in-list (last posts)]
      (list (string/join
@@ -51,8 +73,8 @@
 (defn write-posts
   "Writes out posts to a gzipped json file.
   I will move them to a WARC format later"
-  [posts]
-  (with-open [out (-> (io/output-stream "posts.gz" :append true)
+  [posts destination]
+  (with-open [out (-> (io/output-stream destination :append true)
                       java.util.zip.GZIPOutputStream.
                       io/writer)]
     (binding [*out* out]
@@ -61,17 +83,17 @@
 
 (defn crawl
   "Initiates the crawl and loops over till the job is done"
-  [start-id]
+  [start-id destination]
   (let
     [last_ids_posts (fetch-next-posts start-id)
      last-item-id (first last_ids_posts)
      posts (second last_ids_posts)]
-    (do (write-posts posts)
+    (do (write-posts posts destination)
         (. Thread (sleep 2000))
         (when (not-any? beyond-end-epoch? posts)
-      	  (recur last-item-id)))))
+      	  (recur last-item-id destination)))))
 
 (defn -main
   [& args]
-  (let [[maps [start-id] banner] (cli/cli args)]
-    (crawl start-id)))
+  (let [[maps [start-id destination] banner] (cli/cli args)]
+    (crawl start-id destination)))

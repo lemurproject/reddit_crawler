@@ -7,5 +7,7 @@
                  [clj-http "0.7.2"]
                  [org.clojure/data.json "0.2.2"]
                  [gzip-util "0.1.0-SNAPSHOT"]
-                 [org.clojure/tools.cli "0.2.2"]]
-  :main reddit-crawler.core)
+                 [org.clojure/tools.cli "0.2.2"]
+                 [clj-time "0.5.0"]]
+  :main reddit-crawler.core
+  :aot [reddit-crawler.core reddit-crawler.read-posts])
