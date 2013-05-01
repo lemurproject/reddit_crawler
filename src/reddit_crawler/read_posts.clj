@@ -4,7 +4,8 @@
             [clojure.java.io :as io]
             [clojure.tools.cli :as cli]
             [clojure.walk :as walk]
-            [clj-time.coerce :as clj-time-coerce]))
+            [clj-time.coerce :as clj-time-coerce]
+            [clj-time.core :as clj-time]))
 
 ; Open and read the reddit crawler files
 (defn read-posts
@@ -35,4 +36,7 @@
   (let [[dict [posts-file] banner] (cli/cli args)
         [num-dates last-post-date] (last-date posts-file)]
       (spit "/bos/www/htdocs/spalakod/clueweb12pp/reddit-status.txt" 
-            "Number of Posts: %d\tMost Recent Date Downloaded: %s" num-dates (.toString last-post-date))))
+            (format "Report Time: %s\tNumber of Posts: %d\tMost Recent Date Downloaded: %s" 
+                    (.toString clj-time/now) 
+                    num-dates 
+                    (.toString last-post-date)))))
