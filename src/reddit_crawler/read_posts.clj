@@ -29,6 +29,22 @@
       :data
       :created))
 
+(defn has-self-text?
+  [post-str]
+  (not(= (-> post-str
+          json/read-str
+          walk/keywordize-keys
+          :data
+          :selftext)
+         "")))
+
+(defn num-text-posts
+  [posts-file]
+  (let [selftext-status (read-posts posts-file has-self-text?)]
+    (count 
+      (filter (fn [x] x) 
+              selftext-status))))
+
 (defn last-date
   [posts-file]
   (let [dates (read-posts posts-file get-date)]
@@ -38,11 +54,13 @@
   [& args]
   (let [[dict [posts-file] banner] (cli/cli args)
         [num-dates last-post-date] (last-date posts-file)
+        text-posts-count (num-text-posts posts-file)
         stats-lines (string/split-lines (slurp reddit-stats-file))]
       
           (spit reddit-stats-file 
-                (string/join "\n" (cons (format "Report Time: %s\tNumber of Posts: %d\tMost Recent Date Downloaded: %s" 
+                (string/join "\n" (cons (format "Report Time: %s\tNumber of Posts: %d\tMost Recent Date Downloaded: %s\tDiscussion Initiated By Text: %d" 
                                           (.toString (clj-time/now))
                                           num-dates 
-                                          (.toString last-post-date))
-                                  stats-lines)))))
+                                          (.toString last-post-date)
+                                          text-posts-count)
+                                        stats-lines)))))
